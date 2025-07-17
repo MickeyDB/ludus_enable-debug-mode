@@ -1,0 +1,26 @@
+- name: Check if Secure Boot is enabled
+  ansible.windows.win_shell: |
+    Confirm-SecureBootUEFI
+  register: secure_boot_check
+  ignore_errors: true
+  become: true
+  become_method: runas
+
+- name: Enable test signing
+  ansible.windows.win_shell: bcdedit /set testsigning on
+  when: secure_boot_check.stdout == "False"
+
+- name: Disable integrity checks
+  ansible.windows.win_shell: bcdedit /set nointegritychecks on
+  when: secure_boot_check.stdout == "False"
+
+- name: Warn if Secure Boot blocks unsigned drivers
+  ansible.builtin.debug:
+    msg: "Secure Boot is enabled. Unsigned drivers will not be allowed."
+  when: secure_boot_check.stdout == "True"
+
+- name: Reboot if required
+  ansible.windows.win_reboot:
+    reboot_timeout: 600
+  when: secure_boot_check.stdout == "False"
+
